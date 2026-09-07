@@ -9,6 +9,7 @@ __pycache__/
 .venv/
 venv/
 env/
+.env
 
 # uv
 # (uv.lock should generally be committed for reproducible installs — don't ignore it)
@@ -48,7 +49,6 @@ htmlcov/
 
 # Database (if using local sqlite for dev/testing)
 *.db
-*.sqlite3
 
 # Jupyter
 .ipynb_checkpoints/
