@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+# (uv.lock should generally be committed for reproducible installs — don't ignore it)
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environment variables — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# Docker
+# (docker-compose.yml and dockerfile should be committed; no need to ignore)
+
+# Alembic
+# versions/ should be committed (migration history), don't ignore
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+# Database (if using local sqlite for dev/testing)
+*.db
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
