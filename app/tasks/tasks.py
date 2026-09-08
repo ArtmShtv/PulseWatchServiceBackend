@@ -5,6 +5,7 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from app.db.celery_session import CelerySession
+from app.services.monitor_services import send_email    
 from app.db.models.monitor import Monitor, MonitorStatus
 from app.db.models.monitor_check import MonitorCheck
 from app.db.models.incident import Incident, IncidentStatus
@@ -61,17 +62,24 @@ def check_endpoint(monitor_id: int):
 
         was_down = monitor.current_status == MonitorStatus.DOWN
 
-        if not is_up and not was_down:
+        is_new_incident = not is_up and not was_down
+        is_recovery = is_up and was_down
+
+        incident_id = None
+
+        if is_new_incident:
             incident = Incident(
                 monitor_id=monitor_id,
                 started_at=checked_at,
                 status=IncidentStatus.ONGOING,
-                reason=failure_reason,
+                reason=(failure_reason[:255] if failure_reason else None),
             )
             session.add(incident)
+            session.flush()
+            incident_id = incident.id
             monitor.current_status = MonitorStatus.DOWN
 
-        elif is_up and was_down:
+        elif is_recovery:
             ongoing = (
                 session.query(Incident)
                 .filter(
@@ -89,3 +97,27 @@ def check_endpoint(monitor_id: int):
             monitor.current_status = current_status
 
         session.commit()
+
+        if is_new_incident:
+            send_incident_email.delay(incident_id)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_incident_email(self, incident_id: int):
+    with CelerySession() as session:
+        incident = session.get(Incident, incident_id)
+        if incident is None:
+            return
+
+        monitor = incident.monitor
+        user = monitor.user
+
+        try:
+            send_email(
+                receiver_email=user.email,
+                subject=f"Incident: {monitor.name} is down",
+                body=f"{monitor.url} — {incident.reason}",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send incident email: {e}")
+            raise self.retry(exc=e)

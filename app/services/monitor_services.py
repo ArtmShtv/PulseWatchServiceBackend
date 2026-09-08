@@ -1,11 +1,19 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from sqlalchemy import select
 
 from datetime import datetime, timedelta, timezone
 
 from app.schemas.monitor_schemas import MonitorCreateSchema, MonitorUpdateSchema
 from app.db.models.monitor import Monitor
+from app.core.config import settings
+
+import smtplib
+from email.message import EmailMessage
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 async def create_monitor(
     session: AsyncSession,
@@ -92,3 +100,23 @@ async def delete_monitor(
     await session.commit()
 
     return
+
+
+def send_email(receiver_email, subject, body):
+    message = EmailMessage()
+    message["From"] = f"PulseWatch <{settings.SENDER_EMAIL}>"
+    message["To"] = receiver_email
+    message["Subject"] = subject
+    message.set_content(body)
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+            server.starttls()
+            server.login(settings.SENDER_EMAIL, settings.EMAIL_PASSWORD)
+            server.send_message(message)
+    except smtplib.SMTPAuthenticationError:
+        logger.error("SMTP authentication failed — check SENDER_EMAIL/EMAIL_PASSWORD")
+        raise
+    except smtplib.SMTPException:
+        logger.exception("SMTP error while sending email")
+        raise

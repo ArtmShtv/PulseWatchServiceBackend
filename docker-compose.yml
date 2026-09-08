@@ -70,10 +70,10 @@ services:
       postgres:
         condition: service_healthy
 
-  celery:
-    container_name: celery_worker
+  celery-monitor:
+    container_name: celery_monitor_endpoint
     build: .
-    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info --pool=eventlet --concurrency=200
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info --pool=eventlet --concurrency=200 -Q monitors
     networks:
       - pulse_watch_network
     env_file:
@@ -104,6 +104,28 @@ services:
       - POSTGRES_NAME=${POSTGRES_NAME}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-email:
+    container_name: celery_email_worker
+    build: .
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info -Q emails --concurrency=4
+    networks:
+      - pulse_watch_network
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_NAME=${POSTGRES_NAME}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - SENDER_EMAIL=${SENDER_EMAIL}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
