@@ -1,47 +1,10 @@
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: postgres_pulse_watch_service
-    env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_NAME}
-    volumes:
-      - pgdata:/var/lib/postgresql/pgdata
-    networks:
-      - pulse_watch_network
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_NAME}"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
-
-  redis:
-    image: redis:latest
-    container_name: redis_pulse_watch
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - pulse_watch_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   fastapi:
     container_name: pulsewatch_api
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    ports:
-      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    expose:
+      - "8000"
     networks:
       - pulse_watch_network
     env_file:
@@ -55,7 +18,53 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - .:/app
+      - static_volume:/app/static
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres_pulse_watch_service
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - pulse_watch_network
+    expose:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_NAME}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_pulse_watch
+    expose:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pulse_watch_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   migrate:
     build: .
@@ -69,11 +78,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
 
   celery-monitor:
     container_name: celery_monitor_endpoint
     build: .
-    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info --pool=eventlet --concurrency=200 -Q monitors
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info --pool=eventlet --autoscale=10,3 -Q monitors
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     networks:
       - pulse_watch_network
     env_file:
@@ -89,6 +104,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   celery-beat:
     container_name: celery_beat
@@ -109,6 +125,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   celery-email:
     container_name: celery_email_worker
@@ -131,11 +148,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:
     driver: local
   redis_data:
+  static_volume:
 
 networks:
   pulse_watch_network:

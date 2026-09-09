@@ -21,7 +21,7 @@ celery_app.conf.task_routes = {
 celery_app.conf.beat_schedule = {
     "dispatch-due-monitors": {
         "task": "app.tasks.dispatcher.dispatch_due_monitors",
-        "schedule": 10.0,
+        "schedule": 1.0,
     },
 }
 celery_app.conf.timezone = "UTC"
