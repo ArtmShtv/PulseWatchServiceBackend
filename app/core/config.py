@@ -20,9 +20,15 @@ class Settings(BaseSettings):
     SENDER_EMAIL: str
     EMAIL_PASSWORD: str
 
+    CORS_ORIGINS: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         env_file=".env"
     )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return self.cors_origins.split(",")
 
 settings = Settings()
 
