@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return self.cors_origins.split(",")
+        return self.CORS_ORIGINS.split(",")
 
 settings = Settings()
 
