@@ -22,9 +22,9 @@ async def create_monitor(
 ) -> Monitor:
     result = await session.execute(
         select(Monitor).where(
-            (Monitor.user_id == current_user.id) &
-            (Monitor.url == monitor_data.url) &
-            (Monitor.method == monitor_data.method)
+            Monitor.user_id == current_user.id,
+            Monitor.url == str(monitor_data.url), 
+            Monitor.method == monitor_data.method,
         )
     )
 
@@ -35,7 +35,7 @@ async def create_monitor(
     monitor = Monitor(
         user_id = current_user.id,
         name = monitor_data.name,
-        url = monitor_data.url,
+        url = str(monitor_data.url),
         method = monitor_data.method,
         interval_seconds = monitor_data.interval_seconds,
         timeout_seconds = monitor_data.timeout_seconds,

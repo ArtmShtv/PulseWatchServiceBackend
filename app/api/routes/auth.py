@@ -10,7 +10,10 @@ from fastapi.security import (
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token
+from app.core.security import (
+    create_access_token,
+    create_refresh_token
+)
 from app.schemas.user_schemas import (
     UserResponseSchema,
     UserCreateSchema, 
@@ -21,6 +24,7 @@ from app.services.user_services import (
     get_current_user_from_jwt,
     authenticate_user
 )
+from app.services.token_services import decode_token
 
 
 auth_routes = APIRouter(
@@ -29,7 +33,10 @@ auth_routes = APIRouter(
 )
 
 
-@auth_routes.post("/register", response_model=UserResponseSchema)
+@auth_routes.post(
+    "/register", 
+    response_model=UserResponseSchema
+)
 async def register(
     user_data: UserCreateSchema,
     session: AsyncSession = Depends(get_session),
@@ -64,25 +71,21 @@ async def login(
         )
 
     access_token = create_access_token(user.username)
+    refresh_token = create_refresh_token(user.username)
 
     return {
         "access_token": access_token,
-        "token_type": "bearer",
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
     }
 
 
-@auth_routes.get("/me")
-async def get_me(
-    current_user=Depends(get_current_user_from_jwt),
+@auth_routes.post("/refresh")
+def refresh(
+    refresh_token: str
 ):
-    return {
-        "username": current_user.username,
-    }
+    payload = decode_token(refresh_token, expected_type="refresh")
+    username = payload["sub"]
 
-
-@auth_routes.get("/protected")
-async def protected_route(current_user=Depends(get_current_user_from_jwt)):
-    return {
-        "message": "You are authenticated",
-        "username": current_user.username,
-    }
+    new_access_token = create_access_token(username)
+    return {"access_token": new_access_token, "token_type": "bearer"}

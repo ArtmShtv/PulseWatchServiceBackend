@@ -42,7 +42,7 @@ async def list_of_user_monitors(
     return user_monitors
 
 
-@monitor_router.post("/create", response_model=MonitorSchema)
+@monitor_router.post("/new", response_model=MonitorSchema)
 async def create_monitor_for_user(
     monitor_data: MonitorCreateSchema,
     session: AsyncSession = Depends(get_session),
@@ -63,7 +63,7 @@ async def create_monitor_for_user(
     return monitor
 
 
-@monitor_router.patch("/{monitor_id}", response_model=MonitorSchema)
+@monitor_router.patch("/{monitor_id}/edit", response_model=MonitorSchema)
 async def update_user_monitor(
     monitor_id: int,
     monitor_data: MonitorUpdateSchema,
