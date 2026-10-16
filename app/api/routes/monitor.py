@@ -47,7 +47,7 @@ async def create_monitor_for_user(
     monitor_data: MonitorCreateSchema,
     session: AsyncSession = Depends(get_session),
     current_user = Depends(get_current_user_from_jwt)
-): 
+):
     try:
         monitor = await create_monitor(
             session, 

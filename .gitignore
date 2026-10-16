@@ -11,8 +11,6 @@ venv/
 env/
 .env
 
-# uv
-# (uv.lock should generally be committed for reproducible installs — don't ignore it)
 
 # Distribution / packaging
 build/
@@ -24,12 +22,6 @@ dist/
 .env
 .env.*
 !.env.example
-
-# Docker
-# (docker-compose.yml and dockerfile should be committed; no need to ignore)
-
-# Alembic
-# versions/ should be committed (migration history), don't ignore
 
 # IDE / editor
 .vscode/

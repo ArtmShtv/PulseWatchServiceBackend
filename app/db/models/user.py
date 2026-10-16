@@ -25,7 +25,7 @@ class User(Base):
     )
     password: Mapped[str] = mapped_column(
         String(255),
-        nullable=True
+        nullable=False
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -44,4 +44,5 @@ class User(Base):
     monitors: Mapped[list["Monitor"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )

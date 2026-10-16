@@ -95,9 +95,7 @@ class Monitor(Base):
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
 
-    user: Mapped["User"] = relationship(
-        back_populates="monitors",
-    )
+    user: Mapped["User"] = relationship(back_populates="monitors")
     checks: Mapped[list["MonitorCheck"]] = relationship(
         back_populates="monitor",
         cascade="all, delete-orphan",

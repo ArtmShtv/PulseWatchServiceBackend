@@ -1,12 +1,13 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from pwdlib import PasswordHash
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 import jwt
+
+import asyncio
 
 from app.core.security import hash_password, verify_password
 from app.core.config import settings
@@ -14,35 +15,37 @@ from app.db.models.user import User
 from app.schemas.user_schemas import (
     UserCreateSchema,
 )
+from app.core.exceptions import UserAlreadyExistsError
 from app.db.session import get_session
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-async def register_user(
-    session: AsyncSession,
-    user_data: UserCreateSchema
-) -> User:
+
+
+
+async def register_user(session: AsyncSession, user_data: UserCreateSchema) -> User:
     result = await session.execute(
-        select(User).where(
+        select(User.id).where(
             (User.email == user_data.email) | (User.username == user_data.username)
         )
     )
-
-    existing_user = result.scalar_one_or_none()
-    if existing_user:
-        raise ValueError("Email or username already exists")
+    if result.first():
+        raise UserAlreadyExistsError("Email or username already exists")
 
     user = User(
-        email = user_data.email,
-        username = user_data.username,
-        password = hash_password(user_data.password)
+        email=user_data.email,
+        username=user_data.username,
+        password=await asyncio.to_thread(hash_password, user_data.password),
     )
-
     session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise UserAlreadyExistsError("Email or username already exists")
 
+    await session.refresh(user)
     return user
 
 

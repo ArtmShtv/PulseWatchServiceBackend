@@ -29,8 +29,6 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: postgres_pulse_watch_service
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -48,6 +46,18 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+
+  db_test:
+    image: postgres:17-alpine
+    container_name: postgres_pulse_watch_service_test
+    environment:
+      POSTGRES_USER: ${TESTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TESTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${TESTS_POSTGRES_NAME}
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine

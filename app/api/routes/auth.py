@@ -25,6 +25,7 @@ from app.services.user_services import (
     authenticate_user
 )
 from app.services.token_services import decode_token
+from app.core.exceptions import UserAlreadyExistsError
 
 
 auth_routes = APIRouter(
@@ -34,22 +35,20 @@ auth_routes = APIRouter(
 
 
 @auth_routes.post(
-    "/register", 
-    response_model=UserResponseSchema
+    "/register",
+    response_model=UserResponseSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new user",
+    responses={409: {"description": "Email or username already exists"}},
 )
 async def register(
     user_data: UserCreateSchema,
     session: AsyncSession = Depends(get_session),
 ):
     try:
-        user = await register_user(session, user_data)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=409,
-            detail=str(e),
-        )
-
-    return user
+        return await register_user(session, user_data)
+    except UserAlreadyExistsError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @auth_routes.post("/login")
