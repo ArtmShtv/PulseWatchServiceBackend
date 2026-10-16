@@ -20,7 +20,7 @@ dist/
 
 # Environment variables — never commit real secrets
 .env
-.env.*
+.env.test
 !.env.example
 
 # IDE / editor
