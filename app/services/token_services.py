@@ -1,8 +1,7 @@
 import jwt
+from fastapi import HTTPException
 
 from app.core.config import settings
-
-from fastapi import HTTPException
 
 
 def decode_token(

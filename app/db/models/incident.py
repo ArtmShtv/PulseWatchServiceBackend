@@ -1,14 +1,12 @@
 from datetime import datetime
-
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, Enum
+from sqlalchemy import DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.database import int_pk
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.db.models.monitor import Monitor

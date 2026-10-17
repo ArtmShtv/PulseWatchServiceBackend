@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from pwdlib import PasswordHash
@@ -24,7 +24,7 @@ def verify_password(
 def create_access_token(
     username: str
 ) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
@@ -40,7 +40,7 @@ def create_access_token(
 def create_refresh_token(
     username: str
 ) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
 

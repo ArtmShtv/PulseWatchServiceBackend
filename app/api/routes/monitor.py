@@ -1,26 +1,16 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    status
-)
-
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models.monitor import Monitor
 from app.db.session import get_session
 from app.schemas.monitor_schemas import (
-    MonitorSchema, 
     MonitorCreateSchema,
-    MonitorUpdateSchema
+    MonitorSchema,
+    MonitorUpdateSchema,
 )
+from app.services.monitor_services import create_monitor, delete_monitor, update_monitor
 from app.services.user_services import get_current_user_from_jwt
-from app.db.models.monitor import Monitor
-from app.services.monitor_services import (
-    create_monitor, 
-    update_monitor,
-    delete_monitor
-)
 
 monitor_router = APIRouter(
     prefix="/monitors",

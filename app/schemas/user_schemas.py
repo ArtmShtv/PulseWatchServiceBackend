@@ -1,5 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator, StringConstraints
 from typing import Annotated
+
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 
 class UserResponseSchema(BaseModel):

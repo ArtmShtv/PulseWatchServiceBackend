@@ -1,14 +1,14 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from app.db.celery_session import CelerySession
-from app.services.monitor_services import send_email    
+from app.db.models.incident import Incident, IncidentStatus
 from app.db.models.monitor import Monitor, MonitorStatus
 from app.db.models.monitor_check import MonitorCheck
-from app.db.models.incident import Incident, IncidentStatus
+from app.services.monitor_services import send_email
 
 logger = get_task_logger(__name__)
 
@@ -20,7 +20,7 @@ def check_endpoint(monitor_id: int):
         if monitor is None:
             return
 
-        checked_at = datetime.now(timezone.utc)
+        checked_at = datetime.now(UTC)
 
         try:
             response = requests.request(
@@ -118,6 +118,6 @@ def send_incident_email(self, incident_id: int):
                 subject=f"Incident: {monitor.name} is down",
                 body=f"{monitor.url} — {incident.reason}",
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  retry on any mail failure
             logger.warning(f"Failed to send incident email: {e}")
             raise self.retry(exc=e)

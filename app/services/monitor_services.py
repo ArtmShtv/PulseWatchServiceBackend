@@ -1,16 +1,14 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-from datetime import datetime, timedelta, timezone
-
-from app.schemas.monitor_schemas import MonitorCreateSchema, MonitorUpdateSchema
-from app.db.models.monitor import Monitor
-from app.core.config import settings
-
+import logging
 import smtplib
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 
-import logging
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.db.models.monitor import Monitor
+from app.schemas.monitor_schemas import MonitorCreateSchema, MonitorUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +38,7 @@ async def create_monitor(
         interval_seconds = monitor_data.interval_seconds,
         timeout_seconds = monitor_data.timeout_seconds,
         expected_status = monitor_data.expected_status,
-        next_run_at = datetime.now(timezone.utc) + timedelta(seconds=monitor_data.interval_seconds)
+        next_run_at = datetime.now(UTC) + timedelta(seconds=monitor_data.interval_seconds)
     )
 
     session.add(monitor)
@@ -99,7 +97,6 @@ async def delete_monitor(
     await session.delete(monitor)
     await session.commit()
 
-    return
 
 
 def send_email(receiver_email, subject, body):

@@ -1,22 +1,20 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-
-import jwt
-
 import asyncio
 
-from app.core.security import hash_password, verify_password
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
+from app.core.exceptions import UserAlreadyExistsError
+from app.core.security import hash_password, verify_password
 from app.db.models.user import User
+from app.db.session import get_session
 from app.schemas.user_schemas import (
     UserCreateSchema,
 )
-from app.core.exceptions import UserAlreadyExistsError
-from app.db.session import get_session
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 

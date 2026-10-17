@@ -1,6 +1,7 @@
+from datetime import UTC, datetime, timedelta
+
 from celery import shared_task
 from sqlalchemy import select, update
-from datetime import datetime, timedelta, timezone
 
 from app.db.celery_session import CelerySession
 from app.db.models.monitor import Monitor
@@ -10,7 +11,7 @@ from app.tasks.tasks import check_endpoint
 @shared_task
 def dispatch_due_monitors():
     with CelerySession() as session:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         stmt = (
             select(Monitor.id, Monitor.interval_seconds)

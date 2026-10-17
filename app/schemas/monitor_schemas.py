@@ -1,13 +1,7 @@
-from pydantic import (
-    BaseModel, 
-    Field, 
-    HttpUrl, 
-    field_validator, 
-    model_validator
-)
+from datetime import datetime
 from typing import Annotated, Literal
 
-from datetime import datetime
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.db.models.monitor import MonitorStatus
 
@@ -91,8 +85,11 @@ class MonitorUpdateSchema(BaseModel):
 
     @model_validator(mode="after")
     def timeout_lt_interval(self):
-        if self.timeout_seconds is not None and self.interval_seconds is not None:
-            if self.timeout_seconds >= self.interval_seconds:
-                raise ValueError("timeout_seconds must be less than interval_seconds")
+        if (
+            self.timeout_seconds is not None
+            and self.interval_seconds is not None
+            and self.timeout_seconds >= self.interval_seconds
+        ):
+            raise ValueError("timeout_seconds must be less than interval_seconds")
         return self
     

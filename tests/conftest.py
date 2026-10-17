@@ -1,17 +1,14 @@
-import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-
-from app.main import app
-from app.db.base import Base
-from app.db.session import get_session
-from app.db import models
-
 import os
 
+import pytest_asyncio
 from dotenv import load_dotenv
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.engine import URL
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.db.base import Base
+from app.db.session import get_session
+from app.main import app
 
 load_dotenv(".env.test")
 
