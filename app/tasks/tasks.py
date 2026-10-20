@@ -9,6 +9,7 @@ from app.db.models.incident import Incident, IncidentStatus
 from app.db.models.monitor import Monitor, MonitorStatus
 from app.db.models.monitor_check import MonitorCheck
 from app.services.monitor_services import send_email
+from app.services.event_publisher import publish_event
 
 logger = get_task_logger(__name__)
 
@@ -97,6 +98,17 @@ def check_endpoint(monitor_id: int):
             monitor.current_status = current_status
 
         session.commit()
+
+        publish_event(
+            user_id=monitor.user_id,
+            event_type="check.completed",
+            monitor_id=monitor.id,
+            data={
+                "status": current_status, 
+                "response_ms": response_ms,
+                "status_code": status_code,
+            },
+        )
 
         if is_new_incident:
             send_incident_email.delay(incident_id)

@@ -29,3 +29,8 @@ class UserCreateSchema(BaseModel):
 class UserLoginSchema(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.lower()

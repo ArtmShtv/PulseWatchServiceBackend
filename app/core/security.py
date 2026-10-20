@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
-
 import jwt
+import uuid
 from pwdlib import PasswordHash
 
 from app.core.config import settings
@@ -21,33 +21,29 @@ def verify_password(
     return password_hash.verify(password, hashed_password)
 
 
-def create_access_token(
-    username: str
-) -> str:
-    expire = datetime.now(UTC) + timedelta(
-        minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-
+def _create_token(user_id: int, token_type: str, lifetime: timedelta) -> str:
+    now = datetime.now(UTC)
     payload = {
-        "sub": username,
-        "exp": expire,
-        "type": "access"
+        "sub": str(user_id),
+        "type": token_type,
+        "iat": now,
+        "exp": now + lifetime,
+        "jti": uuid.uuid4().hex,
     }
-
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(
-    username: str
-) -> str:
-    expire = datetime.now(UTC) + timedelta(
-        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+def create_access_token(user_id: int) -> str:
+    return _create_token(
+        user_id,
+        "access",
+        timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    payload = {
-        "sub": username,
-        "exp": expire,
-        "type": "refresh"
-    }
 
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+def create_refresh_token(user_id: int) -> str:
+    return _create_token(
+        user_id,
+        "refresh",
+        timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    )

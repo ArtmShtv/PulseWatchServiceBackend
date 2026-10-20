@@ -8,11 +8,14 @@ from app.db.session import get_session
 from app.schemas.user_schemas import (
     UserCreateSchema,
     UserResponseSchema,
+    UserLoginSchema
 )
+from app.schemas.token_schemas import RefreshTokenSchema
 from app.services.token_services import decode_token
-from app.services.user_services import (
-    authenticate_user,
+from app.services.auth_services import (
     register_user,
+    authenticate_user,
+    get_user_from_token
 )
 
 auth_routes = APIRouter(
@@ -39,39 +42,40 @@ async def register(
 
 
 @auth_routes.post("/login")
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+async def login_json(
+    data: UserLoginSchema,
     session: AsyncSession = Depends(get_session),
 ):
-    user = await authenticate_user(
-        session,
-        form_data.username,
-        form_data.password,
-    )
-
+    user = await authenticate_user(session, data.email, data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    access_token = create_access_token(user.username)
-    refresh_token = create_refresh_token(user.username)
-
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
     }
 
 
 @auth_routes.post("/refresh")
-def refresh(
-    refresh_token: str
+async def refresh(
+    data: RefreshTokenSchema,
+    session: AsyncSession = Depends(get_session),
 ):
-    payload = decode_token(refresh_token, expected_type="refresh")
-    username = payload["sub"]
+    user = await get_user_from_token(
+        session, data.refresh_token, expected_type="refresh"
+    )
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    new_access_token = create_access_token(username)
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    return {
+        "access_token": create_access_token(str(user.id)),
+        "token_type": "bearer",
+    }
