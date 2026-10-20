@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Быстрая отправка изменений на GitHub: add + commit + push.
-# Использование: ./upload "FIX: something"
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
@@ -26,7 +24,6 @@ fi
 
 git commit -m "$msg"
 
-# Если у ветки ещё нет upstream, создаём его при первом push
 if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
   git push
 else
