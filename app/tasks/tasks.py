@@ -8,8 +8,8 @@ from app.db.celery_session import CelerySession
 from app.db.models.incident import Incident, IncidentStatus
 from app.db.models.monitor import Monitor, MonitorStatus
 from app.db.models.monitor_check import MonitorCheck
-from app.services.monitor_services import send_email
 from app.services.event_publisher import publish_event
+from app.services.monitor_services import send_email
 
 logger = get_task_logger(__name__)
 

@@ -1,21 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UserAlreadyExistsError
 from app.core.security import create_access_token, create_refresh_token
 from app.db.session import get_session
+from app.schemas.token_schemas import RefreshTokenSchema
 from app.schemas.user_schemas import (
     UserCreateSchema,
+    UserLoginSchema,
     UserResponseSchema,
-    UserLoginSchema
 )
-from app.schemas.token_schemas import RefreshTokenSchema
-from app.services.token_services import decode_token
 from app.services.auth_services import (
-    register_user,
     authenticate_user,
-    get_user_from_token
+    get_user_from_token,
+    register_user,
 )
 
 auth_routes = APIRouter(

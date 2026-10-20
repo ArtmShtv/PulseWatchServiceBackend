@@ -1,16 +1,15 @@
-import uvicorn
 import asyncio
-
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import auth_routes
 from app.api.routes.monitor import monitor_router
 from app.core.config import settings
-from app.ws.router import router as ws_router
 from app.ws.manager import manager
+from app.ws.router import router as ws_router
 from app.ws.subscriber import redis_listener
 
 

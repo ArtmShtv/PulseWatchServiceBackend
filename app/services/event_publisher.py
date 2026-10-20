@@ -1,7 +1,9 @@
 import logging
+
 import redis
+
 from app.core.config import settings
-from app.ws.events import user_channel, build_event
+from app.ws.events import build_event, user_channel
 
 logger = logging.getLogger(__name__)
 _redis = redis.Redis.from_url(settings.REDIS_URL)

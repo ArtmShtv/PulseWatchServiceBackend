@@ -9,8 +9,8 @@ from app.schemas.monitor_schemas import (
     MonitorSchema,
     MonitorUpdateSchema,
 )
-from app.services.monitor_services import create_monitor, delete_monitor, update_monitor
 from app.services.auth_services import get_current_user_from_jwt
+from app.services.monitor_services import create_monitor, delete_monitor, update_monitor
 
 monitor_router = APIRouter(
     prefix="/monitors",
