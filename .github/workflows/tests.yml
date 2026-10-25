@@ -16,7 +16,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    
+
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -73,5 +73,13 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked
+
+      - name: Check migrations
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check 
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
       - name: Run tests
         run: uv run pytest -v
