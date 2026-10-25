@@ -1,6 +1,8 @@
+import socket
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from urllib.parse import urljoin
 
 import requests
 from celery import shared_task
@@ -8,6 +10,7 @@ from celery.utils.log import get_task_logger
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.url_safety import UnsafeTargetError, ensure_public_target
 from app.db.celery_session import CelerySession
 from app.db.models.incident import Incident, IncidentStatus
 from app.db.models.monitor import Monitor, MonitorStatus
@@ -21,6 +24,7 @@ logger = get_task_logger(__name__)
 USER_AGENT = "PulseWatch/1.0"
 CONFIRM_DELAY_SECONDS = 2
 MAX_ERROR_LEN = 255
+MAX_REDIRECTS = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,23 +39,38 @@ def _truncate(text: str | None, limit: int = MAX_ERROR_LEN) -> str | None:
     return text[:limit] if text else None
 
 
-def probe(
-    method: str, 
-    url: str, 
-    timeout: int, 
-    expected_status: int
-) -> ProbeResult:
-    started = time.perf_counter()
-    try:
+def _request_status(method: str, url: str, timeout: int) -> int:
+    """Send the request and return the final status code.
+
+    Redirects are followed manually so every hop is checked against SSRF rules:
+    a public URL must not be able to redirect the worker into the private network.
+    """
+    for _ in range(MAX_REDIRECTS + 1):
+        ensure_public_target(url)
         with requests.request(
             method,
             url,
             timeout=timeout,
-            stream=True,
+            stream=True,  # only the status is needed, don't download the body
+            allow_redirects=False,
             headers={"User-Agent": USER_AGENT},
         ) as response:
-            status_code = response.status_code
-            response_ms = round((time.perf_counter() - started) * 1000)
+            if not response.is_redirect:
+                return response.status_code
+            url = urljoin(url, response.headers["Location"])
+    raise requests.TooManyRedirects(f"More than {MAX_REDIRECTS} redirects")
+
+
+def probe(method: str, url: str, timeout: int, expected_status: int) -> ProbeResult:
+    """Run a single HTTP check. No DB access, so it is easy to unit-test."""
+    started = time.perf_counter()
+    try:
+        status_code = _request_status(method, url, timeout)
+        response_ms = round((time.perf_counter() - started) * 1000)
+    except UnsafeTargetError as e:
+        return ProbeResult(False, error=f"Blocked: {e}")
+    except socket.gaierror:
+        return ProbeResult(False, error="DNS resolution failed")
     except requests.Timeout:
         return ProbeResult(False, error=f"Timed out after {timeout}s")
     except requests.exceptions.SSLError:

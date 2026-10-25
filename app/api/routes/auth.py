@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UserAlreadyExistsError
+from app.core.rate_limit import limit_login_attempts
 from app.core.security import create_access_token, create_refresh_token
 from app.db.models.user import User
 from app.db.session import get_session
@@ -55,7 +56,13 @@ async def register(user_data: UserCreateSchema, session: SessionDep):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from None
 
 
-@auth_routes.post("/login", response_model=TokenPair, summary="Log in with JSON")
+@auth_routes.post(
+    "/login",
+    response_model=TokenPair,
+    summary="Log in with JSON",
+    dependencies=[Depends(limit_login_attempts)],
+    responses={429: {"description": "Too many login attempts"}},
+)
 async def login_json(data: UserLoginSchema, session: SessionDep):
     user = await authenticate_user(session, data.email, data.password)
     if not user:
@@ -68,6 +75,8 @@ async def login_json(data: UserLoginSchema, session: SessionDep):
     response_model=TokenPair,
     summary="Log in with a form (used by the Swagger Authorize button)",
     description="Put your email in the username field",
+    dependencies=[Depends(limit_login_attempts)],
+    responses={429: {"description": "Too many login attempts"}},
 )
 async def login_form(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],

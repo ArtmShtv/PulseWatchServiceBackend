@@ -1,4 +1,3 @@
-
 from celery import Celery
 
 from app.core.config import settings
@@ -23,6 +22,8 @@ celery_app.conf.beat_schedule = {
     "dispatch-due-monitors": {
         "task": "app.tasks.dispatcher.dispatch_due_monitors",
         "schedule": 1.0,
+        # a dispatch that waited more than 1s is useless - the next tick covers it
+        "options": {"expires": 1.0},
     },
 }
 celery_app.conf.timezone = "UTC"

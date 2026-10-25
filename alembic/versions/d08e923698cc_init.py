@@ -94,3 +94,6 @@ def downgrade() -> None:
     op.drop_table('monitors')
     op.drop_table('users')
     # ### end Alembic commands ###
+    # Postgres keeps ENUM types after drop_table - drop them too
+    sa.Enum(name="incidentstatus").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="monitorstatus").drop(op.get_bind(), checkfirst=True)

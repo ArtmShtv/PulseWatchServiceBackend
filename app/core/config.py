@@ -24,6 +24,14 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    # SSRF protection: keep False in production. True lets monitors target
+    # localhost/private networks (only for local experiments).
+    ALLOW_PRIVATE_TARGETS: bool = False
+
+    # Login brute-force protection: attempts per client IP per window
+    LOGIN_RATE_LIMIT: int = 10
+    LOGIN_RATE_WINDOW_SECONDS: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env"
     )

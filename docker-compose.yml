@@ -3,6 +3,11 @@ x-app-env: &app-env
   REDIS_HOST: redis
   REDIS_PORT: 6379
 
+# One image for the API, migrations and all workers
+x-app-image: &app-image
+  image: pulsewatch-backend:latest
+  build: .
+
 x-app-depends: &app-depends
   postgres:
     condition: service_healthy
@@ -14,7 +19,7 @@ x-app-depends: &app-depends
 services:
   fastapi:
     container_name: pulsewatch_api
-    build: .
+    <<: *app-image
     expose:
       - "8000"
     networks:
@@ -75,7 +80,7 @@ services:
     restart: unless-stopped
 
   migrate:
-    build: .
+    <<: *app-image
     command: alembic upgrade head
     networks:
       - pulse_watch_network
@@ -90,7 +95,7 @@ services:
 
   celery-monitor:
     container_name: celery_monitor_endpoint
-    build: .
+    <<: *app-image
     command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info --pool=eventlet --autoscale=10,3 -Q monitors
     deploy:
       resources:
@@ -108,7 +113,7 @@ services:
 
   celery-beat:
     container_name: celery_beat
-    build: .
+    <<: *app-image
     command: celery -A app.tasks.celery_app.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
     networks:
       - pulse_watch_network
@@ -121,7 +126,7 @@ services:
 
   celery-email:
     container_name: celery_email_worker
-    build: .
+    <<: *app-image
     command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info -Q emails --concurrency=4
     networks:
       - pulse_watch_network

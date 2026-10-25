@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
+from app.core.url_safety import check_url_host
 from app.db.models.monitor import MonitorStatus
 
 HttpMethod = Literal["GET", "HEAD"]
@@ -60,6 +61,12 @@ class MonitorCreateSchema(BaseModel):
         "from_attributes": True
     }
 
+    @field_validator("url")
+    @classmethod
+    def url_must_be_public(cls, v: HttpUrl) -> HttpUrl:
+        check_url_host(str(v))  # UnsafeTargetError is a ValueError -> 422
+        return v
+
     @field_validator("timeout_seconds")
     @classmethod
     def timeout_lt_interval(cls, v, info):
@@ -81,6 +88,13 @@ class MonitorUpdateSchema(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+    @field_validator("url")
+    @classmethod
+    def url_must_be_public(cls, v: HttpUrl | None) -> HttpUrl | None:
+        if v is not None:
+            check_url_host(str(v))
+        return v
 
     @model_validator(mode="after")
     def timeout_lt_interval(self):
