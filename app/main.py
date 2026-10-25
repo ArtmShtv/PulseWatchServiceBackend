@@ -1,5 +1,5 @@
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import uvicorn
 from fastapi import FastAPI
@@ -18,7 +18,8 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(redis_listener(manager))
     yield
     task.cancel()
-    await task
+    with suppress(asyncio.CancelledError):
+        await task
 
 
 app = FastAPI(lifespan=lifespan)

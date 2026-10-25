@@ -16,18 +16,17 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-
-      - name: Install ruff
-        run: python -m pip install ruff
-
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
       - name: Lint
-        run: ruff check .
+        run: uv run ruff check .
 
   test:
     runs-on: ubuntu-latest
@@ -35,7 +34,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -48,32 +47,18 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-    #   redis:
-    #     image: redis:7-alpine
-    #     ports:
-    #       - 6379:6379
-    #     options: >-
-    #       --health-cmd "redis-cli ping"
-    #       --health-interval 5s
-    #       --health-timeout 5s
-    #       --health-retries 10
-
     env:
-      SECRET_KEY: ci-only-secret
-
+      SECRET_KEY: ci-secret-key
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       POSTGRES_NAME: app_test
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
-
       REDIS_HOST: localhost
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ci-fake-redis-password
-
+      REDIS_PASSWORD: ""
       SENDER_EMAIL: ci@example.com
       EMAIL_PASSWORD: ci-fake-password
-
       TESTS_POSTGRES_HOST: localhost
       TESTS_POSTGRES_PORT: 5432
       TESTS_POSTGRES_USER: test
@@ -82,19 +67,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-
+          enable-cache: true
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-
-      - name: Check dependencies
-        run: python -m pip check
-
+        run: uv sync --locked
       - name: Run tests
-        run: python -m pytest -v
+        run: uv run pytest -v

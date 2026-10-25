@@ -1,11 +1,12 @@
-import os
 
 from celery import Celery
 
+from app.core.config import settings
+
 celery_app = Celery(
     "pulsewatch",
-    broker=os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"),
-    backend=os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0"),
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=[
         "app.tasks.dispatcher",
         "app.tasks.tasks",
@@ -17,6 +18,7 @@ celery_app.conf.task_routes = {
     "app.tasks.tasks.check_endpoint": {"queue": "monitors"},
     "app.tasks.tasks.send_incident_email": {"queue": "emails"},
 }
+
 celery_app.conf.beat_schedule = {
     "dispatch-due-monitors": {
         "task": "app.tasks.dispatcher.dispatch_due_monitors",

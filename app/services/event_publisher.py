@@ -12,5 +12,4 @@ def publish_event(user_id: int, event_type: str, monitor_id: int, data: dict) ->
     try:
         _redis.publish(user_channel(user_id), build_event(event_type, monitor_id, data))
     except redis.RedisError:
-        # живой дашборд не должен ломать проверку монитора
         logger.warning("Failed to publish event", exc_info=True)

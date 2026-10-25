@@ -1,3 +1,17 @@
+x-app-env: &app-env
+  POSTGRES_HOST: postgres
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+
+x-app-depends: &app-depends
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  migrate:
+    condition: service_completed_successfully
+
 services:
   fastapi:
     container_name: pulsewatch_api
@@ -9,13 +23,8 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_HOST=postgres
-      - CELERY_BROKER_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *app-env
+    depends_on: *app-depends
     volumes:
       - static_volume:/app/static
     healthcheck:
@@ -47,21 +56,12 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  db_test:
-    image: postgres:17-alpine
-    container_name: postgres_pulse_watch_service_test
-    environment:
-      POSTGRES_USER: ${TESTS_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${TESTS_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${TESTS_POSTGRES_NAME}
-    ports:
-      - "5433:5432"
-    tmpfs:
-      - /var/lib/postgresql/data
-
   redis:
     image: redis:7-alpine
     container_name: redis_pulse_watch
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}", "--appendonly", "yes"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
     expose:
       - "6379"
     volumes:
@@ -83,11 +83,11 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_HOST=postgres
+      <<: *app-env
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"
 
   celery-monitor:
     container_name: celery_monitor_endpoint
@@ -103,16 +103,8 @@ services:
     env_file:
       - .env
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - POSTGRES_HOST=postgres
-      - POSTGRES_NAME=${POSTGRES_NAME}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *app-env
+    depends_on: *app-depends
     restart: unless-stopped
 
   celery-beat:
@@ -124,16 +116,8 @@ services:
     env_file:
       - .env
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - POSTGRES_HOST=postgres
-      - POSTGRES_NAME=${POSTGRES_NAME}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *app-env
+    depends_on: *app-depends
     restart: unless-stopped
 
   celery-email:
@@ -145,19 +129,22 @@ services:
     env_file:
       - .env
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - POSTGRES_HOST=postgres
-      - POSTGRES_NAME=${POSTGRES_NAME}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - SENDER_EMAIL=${SENDER_EMAIL}
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *app-env
+    depends_on: *app-depends
     restart: unless-stopped
+
+  db_test:
+    image: postgres:17-alpine
+    container_name: postgres_pulse_watch_service_test
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: ${TESTS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TESTS_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${TESTS_POSTGRES_NAME}
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
 
 volumes:
   pgdata:

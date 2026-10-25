@@ -1,8 +1,12 @@
+import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import requests
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.db.celery_session import CelerySession
 from app.db.models.incident import Incident, IncidentStatus
@@ -10,112 +14,169 @@ from app.db.models.monitor import Monitor, MonitorStatus
 from app.db.models.monitor_check import MonitorCheck
 from app.services.event_publisher import publish_event
 from app.services.monitor_services import send_email
+from app.ws.events import EventType
 
 logger = get_task_logger(__name__)
 
+USER_AGENT = "PulseWatch/1.0"
+CONFIRM_DELAY_SECONDS = 2
+MAX_ERROR_LEN = 255
 
-@shared_task
-def check_endpoint(monitor_id: int):
+
+@dataclass(frozen=True, slots=True)
+class ProbeResult:
+    is_up: bool
+    status_code: int | None = None
+    response_ms: int | None = None
+    error: str | None = None
+
+
+def _truncate(text: str | None, limit: int = MAX_ERROR_LEN) -> str | None:
+    return text[:limit] if text else None
+
+
+def probe(
+    method: str, 
+    url: str, 
+    timeout: int, 
+    expected_status: int
+) -> ProbeResult:
+    started = time.perf_counter()
+    try:
+        with requests.request(
+            method,
+            url,
+            timeout=timeout,
+            stream=True,
+            headers={"User-Agent": USER_AGENT},
+        ) as response:
+            status_code = response.status_code
+            response_ms = round((time.perf_counter() - started) * 1000)
+    except requests.Timeout:
+        return ProbeResult(False, error=f"Timed out after {timeout}s")
+    except requests.exceptions.SSLError:
+        return ProbeResult(False, error="SSL certificate error")
+    except requests.ConnectionError:
+        return ProbeResult(False, error="Connection failed")
+    except requests.RequestException as e:
+        return ProbeResult(False, error=f"Request error: {type(e).__name__}")
+
+    if status_code == expected_status:
+        return ProbeResult(True, status_code, response_ms)
+    return ProbeResult(
+        False,
+        status_code,
+        response_ms,
+        f"Expected {expected_status}, got {status_code}",
+    )
+
+
+def apply_result(
+    session: Session,
+    monitor: Monitor,
+    result: ProbeResult,
+    checked_at: datetime,
+) -> tuple[EventType | None, int | None]:
+    new_status = MonitorStatus.UP if result.is_up else MonitorStatus.DOWN
+    previous = monitor.current_status
+
+    session.add(
+        MonitorCheck(
+            monitor_id=monitor.id,
+            status=new_status,
+            status_code=result.status_code,
+            response_ms=result.response_ms,
+            error_message=_truncate(result.error),
+            checked_at=checked_at,
+        )
+    )
+    monitor.last_checked_at = checked_at
+    monitor.last_response_ms = result.response_ms
+    monitor.current_status = new_status
+
+    if new_status == MonitorStatus.DOWN and previous != MonitorStatus.DOWN:
+        incident = Incident(
+            monitor_id=monitor.id,
+            started_at=checked_at,
+            status=IncidentStatus.ONGOING,
+            reason=_truncate(result.error),
+        )
+        session.add(incident)
+        session.flush()
+        return EventType.INCIDENT_OPENED, incident.id
+
+    if new_status == MonitorStatus.UP and previous == MonitorStatus.DOWN:
+        incident = session.scalars(
+            select(Incident).where(
+                Incident.monitor_id == monitor.id,
+                Incident.status == IncidentStatus.ONGOING,
+            )
+        ).first()
+        if incident:
+            incident.status = IncidentStatus.RESOLVED
+            incident.resolved_at = checked_at
+        return EventType.INCIDENT_RESOLVED, incident.id if incident else None
+
+    return None, None
+
+
+@shared_task(ignore_result=True)
+def check_endpoint(monitor_id: int) -> None:
     with CelerySession() as session:
         monitor = session.get(Monitor, monitor_id)
+        if monitor is None or not monitor.is_active:
+            return
+        target = (
+            monitor.method,
+            monitor.url,
+            monitor.timeout_seconds,
+            monitor.expected_status,
+        )
+        name = monitor.name
+
+    result = probe(*target)
+    if not result.is_up:
+        time.sleep(CONFIRM_DELAY_SECONDS)
+        result = probe(*target)
+        if not result.is_up:
+            logger.warning("Check failed for %s (%s): %s", name, target[1], result.error)
+
+    checked_at = datetime.now(UTC)
+
+    with CelerySession() as session:
+        monitor = session.scalars(
+            select(Monitor).where(Monitor.id == monitor_id).with_for_update()
+        ).one_or_none()
         if monitor is None:
             return
-
-        checked_at = datetime.now(UTC)
-
-        try:
-            response = requests.request(
-                monitor.method,
-                monitor.url,
-                timeout=monitor.timeout_seconds,
-            )
-            response_ms = round(response.elapsed.total_seconds() * 1000)
-            status_code = response.status_code
-
-            if status_code == monitor.expected_status:
-                is_up = True
-                failure_reason = None
-            else:
-                is_up = False
-                failure_reason = f"Server returned {status_code} instead of {monitor.expected_status}"
-
-        except requests.RequestException as e:
-            logger.warning(f"Check failed for {monitor.name} ({monitor.url}): {e}")
-            response_ms = None
-            status_code = None
-            is_up = False
-            failure_reason = str(e)
-
-        current_status = MonitorStatus.UP if is_up else MonitorStatus.DOWN
-
-        check = MonitorCheck(
-            monitor_id=monitor_id,
-            status=current_status,
-            status_code=status_code,
-            response_ms=response_ms,
-            checked_at=checked_at,
-            error_message=failure_reason,
-        )
-        session.add(check)
-
-        monitor.last_checked_at = checked_at
-        monitor.last_response_ms = response_ms
-
-        was_down = monitor.current_status == MonitorStatus.DOWN
-
-        is_new_incident = not is_up and not was_down
-        is_recovery = is_up and was_down
-
-        incident_id = None
-
-        if is_new_incident:
-            incident = Incident(
-                monitor_id=monitor_id,
-                started_at=checked_at,
-                status=IncidentStatus.ONGOING,
-                reason=(failure_reason[:255] if failure_reason else None),
-            )
-            session.add(incident)
-            session.flush()
-            incident_id = incident.id
-            monitor.current_status = MonitorStatus.DOWN
-
-        elif is_recovery:
-            ongoing = (
-                session.query(Incident)
-                .filter(
-                    Incident.monitor_id == monitor_id,
-                    Incident.status == IncidentStatus.ONGOING,
-                )
-                .first()
-            )
-            if ongoing:
-                ongoing.status = IncidentStatus.RESOLVED
-                ongoing.resolved_at = checked_at
-            monitor.current_status = MonitorStatus.UP
-
-        else:
-            monitor.current_status = current_status
-
+        transition, incident_id = apply_result(session, monitor, result, checked_at)
+        user_id = monitor.user_id
         session.commit()
 
+    publish_event(
+        user_id,
+        EventType.CHECK_COMPLETED,
+        monitor_id,
+        {
+            "status": MonitorStatus.UP if result.is_up else MonitorStatus.DOWN,
+            "status_code": result.status_code,
+            "response_ms": result.response_ms,
+            "checked_at": checked_at.isoformat(),
+        },
+    )
+    if transition is not None:
         publish_event(
-            user_id=monitor.user_id,
-            event_type="check.completed",
-            monitor_id=monitor.id,
-            data={
-                "status": current_status, 
-                "response_ms": response_ms,
-                "status_code": status_code,
-            },
+            user_id,
+            transition,
+            monitor_id,
+            {"incident_id": incident_id, "reason": result.error},
         )
+    if transition == EventType.INCIDENT_OPENED:
+        send_incident_email.delay(incident_id)
 
-        if is_new_incident:
-            send_incident_email.delay(incident_id)
 
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_incident_email(self, incident_id: int):
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, ignore_result=True)
+def send_incident_email(self, incident_id: int) -> None:
     with CelerySession() as session:
         incident = session.get(Incident, incident_id)
         if incident is None:
@@ -130,6 +191,6 @@ def send_incident_email(self, incident_id: int):
                 subject=f"Incident: {monitor.name} is down",
                 body=f"{monitor.url} — {incident.reason}",
             )
-        except Exception as e:  # noqa: BLE001  retry on any mail failure
-            logger.warning(f"Failed to send incident email: {e}")
-            raise self.retry(exc=e)
+        except Exception as e:
+            logger.warning("Failed to send incident email %s: %s", incident_id, e)
+            raise self.retry(exc=e) from e

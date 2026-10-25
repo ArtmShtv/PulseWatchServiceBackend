@@ -14,7 +14,7 @@ from app.db.models.user import User
 from app.db.session import async_session_maker, get_session
 from app.schemas.user_schemas import UserCreateSchema
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
 
 _DUMMY_HASH = hash_password("dummy-password")
 

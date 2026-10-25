@@ -45,4 +45,4 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-app/ws
+CLAUDE.md

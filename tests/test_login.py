@@ -80,7 +80,6 @@ async def test_login_no_users_in_db(client):
 
 
 async def test_login_errors_are_indistinguishable(client, registered):
-    """Защита от user enumeration: ответы совпадают полностью."""
     wrong_pass = await client.post(URL, json=payload(password="wrongpass123"))
     no_user = await client.post(URL, json=payload(email="nobody@example.com"))
 
@@ -141,10 +140,6 @@ async def test_login_non_json_body(client):
 
     assert resp.status_code == 422
 
-
-# ---------- хеширование (юнит) ----------
-# test_verify_password_accepts_correct на текущем коде упадёт:
-# это баг с двойным хешированием в verify_password.
 
 def test_verify_password_accepts_correct():
     assert verify_password(PASSWORD, hash_password(PASSWORD)) is True

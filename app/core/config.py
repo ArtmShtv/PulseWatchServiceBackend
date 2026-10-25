@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PASSWORD: str
     REDIS_PORT: int
+    REDIS_DB: int = 0
 
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -30,6 +31,11 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return self.CORS_ORIGINS.split(",")
+
+    @property
+    def REDIS_URL(self) -> str:
+        auth = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
 settings = Settings()
 
