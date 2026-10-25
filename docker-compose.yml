@@ -2,7 +2,6 @@ x-app-env: &app-env
   POSTGRES_HOST: postgres
   REDIS_HOST: redis
   REDIS_PORT: 6379
-  CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
 
 x-app-depends: &app-depends
   postgres:

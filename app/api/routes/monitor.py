@@ -71,7 +71,11 @@ async def create_user_monitor(
 
 
 @monitor_router.get("/{monitor_id}", response_model=MonitorSchema, responses=_NOT_FOUND)
-async def get_monitor(monitor_id: int, session: SessionDep, current_user: CurrentUser):
+async def get_monitor(
+    monitor_id: int, 
+    session: SessionDep, 
+    current_user: CurrentUser
+):
     try:
         return await get_user_monitor(session, monitor_id, current_user)
     except MonitorNotFoundError as e:

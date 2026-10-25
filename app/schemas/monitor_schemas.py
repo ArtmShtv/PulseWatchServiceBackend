@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.db.models.monitor import MonitorStatus
 
+HttpMethod = Literal["GET", "HEAD"]
+
 
 class MonitorSchema(BaseModel):
     id: int
@@ -39,10 +41,7 @@ class MonitorCreateSchema(BaseModel):
         HttpUrl,
         Field()
     ]
-    method: Annotated[
-        Literal["GET"],
-        Field()
-    ] = "GET"
+    method: HttpMethod = "GET"
 
     interval_seconds: Annotated[
         int,
@@ -73,7 +72,7 @@ class MonitorCreateSchema(BaseModel):
 class MonitorUpdateSchema(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     url: HttpUrl | None = None
-    method: Literal["GET", "POST", "HEAD", "PUT"] | None = None
+    method: HttpMethod | None = None
 
     interval_seconds: Annotated[int, Field(ge=60, le=86400)] | None = None
     timeout_seconds: Annotated[int, Field(ge=1, le=60)] | None = None
